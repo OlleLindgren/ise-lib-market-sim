@@ -63,8 +63,6 @@ class TraderBot(ABC):
         if self.weights.min() < 0.:
             raise Exception("Negative weights are not allowed")
 
-        self.weights[(market < 1e-8).index.intersection(self.weights.index)] = 0.
-
         # Compute adjusted weights from absolute weights.
         # This is to compensate for the different magnitudes
         # of the prices of different securities.
@@ -105,7 +103,9 @@ class MaxSharpeBot(TraderBot):
             elif total_weight < 0.:
                 self.weights *= 0.
 
+
 class RandomBot(TraderBot):
+    """A bot that generates uniform random weights"""
     def update_weights(self) -> None:
         if len(self.market_history.index) > 3:
             self.weights = pd.Series(
@@ -117,7 +117,9 @@ class RandomBot(TraderBot):
             elif total_weight < 0.:
                 self.weights *= 0.
 
+
 class UniformBot(TraderBot):
+    """A bot that generates uniform weights."""
     def update_weights(self) -> None:
         if len(self.market_history.index) > 3:
             self.weights = pd.Series(
