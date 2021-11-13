@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import datetime
 import pandas as pd
 import numpy as np
 
@@ -64,7 +63,7 @@ class TraderBot(ABC):
         if self.weights.min() < 0.:
             raise Exception("Negative weights are not allowed")
 
-        self.weights[market < 1e-8] = 0.
+        self.weights[(market < 1e-8).index.intersection(self.weights.index)] = 0.
 
         # Compute adjusted weights from absolute weights.
         # This is to compensate for the different magnitudes
@@ -101,6 +100,30 @@ class MaxSharpeBot(TraderBot):
             mu = data_selection.mean()
             cov = data_selection.cov()
             self.weights = pd.Series(data=max_sharpe(mu, cov), index=data_selection.columns)
+            if (total_weight := self.weights.sum()) > 1.:
+                self.weights *= .99 / total_weight
+            elif total_weight < 0.:
+                self.weights *= 0.
+
+class RandomBot(TraderBot):
+    def update_weights(self) -> None:
+        if len(self.market_history.index) > 3:
+            self.weights = pd.Series(
+                data=np.random.dirichlet(np.ones(self.market_history.shape[1])),
+                index=self.market_history.columns
+            )
+            if (total_weight := self.weights.sum()) > 1.:
+                self.weights *= .99 / total_weight
+            elif total_weight < 0.:
+                self.weights *= 0.
+
+class UniformBot(TraderBot):
+    def update_weights(self) -> None:
+        if len(self.market_history.index) > 3:
+            self.weights = pd.Series(
+                data=np.ones(self.market_history.shape[1]) / self.market_history.shape[1],
+                index=self.market_history.columns
+            )
             if (total_weight := self.weights.sum()) > 1.:
                 self.weights *= .99 / total_weight
             elif total_weight < 0.:
