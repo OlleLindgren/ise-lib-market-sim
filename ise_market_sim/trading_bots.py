@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
+import heapq
 import pandas as pd
 import numpy as np
 
 from ise_efficient_frontier import min_risk, max_sharpe
-from .market_selection import prep_select
+from pandas.core.frame import DataFrame
+from pandas.core.series import Series
+from .market_selection import prep_select, select_from_history
 
 
 class TraderBot(ABC):
@@ -34,16 +37,20 @@ class TraderBot(ABC):
     def update_weights(self) -> None:
         """Update portfolio weights"""
 
-    def record_market(self, market: pd.Series) -> None:
+    @classmethod
+    def record_market(cls, market: pd.Series) -> None:
         """Record state of market"""
-        if self.market_history is None:
-            self.market_history = pd.DataFrame(
+        if cls.market_history is None:
+            cls.market_history = pd.DataFrame(
                 columns=list(market.index),
                 data=[market.values],
                 index=[market.name]
             )
+        elif market.name in cls.market_history.index:
+            # If already recorded by other instance, return
+            return
         else:
-            self.market_history.loc[market.name, market.index] = market.values
+            cls.market_history.loc[market.name, market.index] = market.values
 
     def update(self, market: pd.Series):
         """Update bot with new market state, and perform bot actions"""
@@ -94,10 +101,11 @@ class MinRiskBot(TraderBot):
 
     def update_weights(self) -> None:
         if len(self.market_history.index) > 50:
-            data_selection = prep_select(self.market_history, n=100)
-            mu = data_selection.mean()
-            cov = data_selection.cov()
-            self.weights = pd.Series(data=min_risk(mu, cov), index=data_selection.columns)
+
+            tickers, mu, cov = select_from_history(n=30, history=self.market_history)
+
+            self.weights = pd.Series(data=min_risk(mu, cov), index=tickers)
+
             if (total_weight := self.weights.sum()) > 1.:
                 self.weights *= .99 / total_weight
             elif total_weight < 0.:
@@ -110,10 +118,11 @@ class MaxSharpeBot(TraderBot):
 
     def update_weights(self) -> None:
         if len(self.market_history.index) > 50:
-            data_selection = prep_select(self.market_history, n=100)
-            mu = data_selection.mean()
-            cov = data_selection.cov()
-            self.weights = pd.Series(data=max_sharpe(mu, cov), index=data_selection.columns)
+
+            tickers, mu, cov = select_from_history(n=30, history=self.market_history)
+
+            self.weights = pd.Series(data=max_sharpe(mu, cov), index=tickers)
+
             if (total_weight := self.weights.sum()) > 1.:
                 self.weights *= .99 / total_weight
             elif total_weight < 0.:
@@ -122,6 +131,7 @@ class MaxSharpeBot(TraderBot):
 
 class RandomBot(TraderBot):
     """A bot that generates uniform random weights"""
+
     def update_weights(self) -> None:
         if len(self.market_history.index) > 3:
             self.weights = pd.Series(
@@ -136,6 +146,7 @@ class RandomBot(TraderBot):
 
 class UniformBot(TraderBot):
     """A bot that generates uniform weights."""
+
     def update_weights(self) -> None:
         if len(self.market_history.index) > 3:
             self.weights = pd.Series(
