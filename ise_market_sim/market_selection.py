@@ -113,7 +113,7 @@ def select_from_history(
     # ########################### CACHE ############################
 
     # Wipe cache to save memory
-    SELECTION_CACHES.clear()
+    # SELECTION_CACHES.clear()
 
     # Cache with fingerprint
     SELECTION_CACHES[f] = columns, mu, cov

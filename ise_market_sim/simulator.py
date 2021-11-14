@@ -7,9 +7,12 @@ import pandas as pd
 
 
 class Observer(ABC):
+
+    name: str
+
     def update(self, market: pd.Series) -> None:
         """Update observer with new market state"""
-    
+
     def avive(self) -> bool:
         """Whether the observer is alive"""
 
@@ -75,20 +78,21 @@ class Simulator:
         self._t = next(self.__timeline)
 
     def print_state(self):
-        strings = (f"{p.__class__.__name__}: {p.score:.3E}" for p in self._observers)
+        best_3 = sorted(self._observers, key=lambda obs: -obs.score)[:4]
+        strings = (f"{p.name}: {p.score:.3E}" for p in best_3)
         print(' | '.join(strings))
 
     def save_scores(self):
         score_df = pd.DataFrame(
             index=[ix for _, ix in zip(self.scores, self._market_history.index)],
-            columns=[obs.__class__.__name__ for obs in self._observers],
+            columns=[obs.name for obs in self._observers],
             data=self.scores
         )
         time_format = "%y-%m-%dT%H:%M:%S"
         start_time_str = self.sim_start_time.strftime(time_format)
         end_time_str = self.sim_end_time.strftime(time_format)
         filename = (Path('.') / f'market_sim_scores_{start_time_str}_{end_time_str}.csv').absolute()
-        score_df.to_csv(filename)
+        score_df.to_csv(filename, sep=';')
         print(f'saved scores to {filename}')
 
     def run(self):
