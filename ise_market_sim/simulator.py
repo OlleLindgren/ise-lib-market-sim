@@ -102,8 +102,7 @@ class Simulator:
                 self.step()
                 if self.verbose:
                     self.print_state()
-            except (StopIteration, KeyboardInterrupt, AllObserversDead) as err:
+            except:
                 self.sim_end_time = datetime.datetime.now()
-                print(f"{err.__class__.__name__} raised, stopping simulation")
                 self.save_scores()
-                break
+                raise

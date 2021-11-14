@@ -119,6 +119,8 @@ class TraderBot(ABC):
 
             self.weights = self.weight_function(tickers, mu, cov)
 
+            self.weights[self.weights < 1e-8] = 0.
+
             if (total_weight := self.weights.sum()) > 1.:
                 self.weights *= .99 / total_weight
             elif total_weight < 0.:
