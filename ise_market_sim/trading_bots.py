@@ -26,6 +26,10 @@ class TraderBot(ABC):
         self.weights = pd.Series(data=[], index=[])
         self.__adj_weights = pd.Series(data=[], index=[])
 
+    def alive(self) -> bool:
+        """Whether the bot has anything left to invest."""
+        return self.k + self.weights.sum() > 1e-16
+
     @abstractmethod
     def update_weights(self) -> None:
         """Update portfolio weights"""
@@ -47,6 +51,13 @@ class TraderBot(ABC):
         # Record state of market
         self.record_market(market)
 
+        # If there are tickers in old weights that are not present in market, we retain these.
+        index_diff = self.weights.index.difference(market.index)
+
+        if not index_diff.empty:
+            retained_adj_weights = self.__adj_weights[index_diff]
+            retained_weights = self.weights[index_diff]
+
         # Sell
         self.k += market.multiply(self.__adj_weights, fill_value=0.).sum()
 
@@ -67,6 +78,11 @@ class TraderBot(ABC):
         # This is to compensate for the different magnitudes
         # of the prices of different securities.
         self.__adj_weights = self.k * self.weights.divide(market).fillna(0.).replace(np.inf, 0.)
+
+        if not index_diff.empty:
+            k_retained_weights = retained_weights.sum()
+            self.__adj_weights = pd.concat([self.__adj_weights * (1. - k_retained_weights), retained_adj_weights])
+            self.weights = pd.concat([self.weights * (1. - k_retained_weights), retained_weights])
 
         # Set k to the non-invested ratio.
         self.k *= 1. - self.weights.sum()

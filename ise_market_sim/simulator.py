@@ -1,17 +1,21 @@
 import datetime
-import os
 from abc import ABC
 from pathlib import Path
 from typing import Iterable, List
 
 import pandas as pd
 
-from ise_market_sim import market_selection
-
 
 class Observer(ABC):
-    def update(market: pd.Series) -> None:
-        pass
+    def update(self, market: pd.Series) -> None:
+        """Update observer with new market state"""
+    
+    def avive(self) -> bool:
+        """Whether the observer is alive"""
+
+
+class AllObserversDead(Exception):
+    """All observers are dead"""
 
 
 class Simulator:
@@ -22,6 +26,8 @@ class Simulator:
     verbose: bool
     _sparse: bool
     scores: List
+    sim_start_time: datetime.datetime
+    sim_end_time: datetime.datetime
 
     def __init__(self,
                  observers: List[Observer],
@@ -53,11 +59,18 @@ class Simulator:
             market = market.sparse.to_dense()
 
         # Update every observer
+        any_observer_alive = False
         for observer in self._observers:
+            if not observer.alive():
+                continue
+            any_observer_alive = True
             observer.update(market)
 
         # Record everyone's scores
         self.scores.append([obs.score for obs in self._observers])
+
+        if not any_observer_alive:
+            raise AllObserversDead()
 
         self._t = next(self.__timeline)
 
@@ -71,16 +84,22 @@ class Simulator:
             columns=[obs.__class__.__name__ for obs in self._observers],
             data=self.scores
         )
-        filename = (Path('.') / 'market_sim_scores.csv').absolute()
+        time_format = "%y-%m-%dT%H:%M:%S"
+        start_time_str = self.sim_start_time.strftime(time_format)
+        end_time_str = self.sim_end_time.strftime(time_format)
+        filename = (Path('.') / f'market_sim_scores_{start_time_str}_{end_time_str}.csv').absolute()
         score_df.to_csv(filename)
         print(f'saved scores to {filename}')
 
     def run(self):
+        self.sim_start_time = datetime.datetime.now()
         while True:
             try:
                 self.step()
                 if self.verbose:
                     self.print_state()
-            except (StopIteration, KeyboardInterrupt):
+            except (StopIteration, KeyboardInterrupt, AllObserversDead) as err:
+                self.sim_end_time = datetime.datetime.now()
+                print(f"{err.__class__.__name__} raised, stopping simulation")
                 self.save_scores()
                 break
