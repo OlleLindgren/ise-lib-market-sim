@@ -31,7 +31,7 @@ class TraderBot(ABC):
     historical_trading_horizon: int
 
     def __init__(self) -> None:
-        self.k = 1.
+        self.k = 1.0
         self.weights = pd.Series(data=[], index=[])
         self.__adj_weights = pd.Series(data=[], index=[])
         self.name = self.__class__.__name__
@@ -49,9 +49,7 @@ class TraderBot(ABC):
         """Record state of market"""
         if cls.market_history is None:
             cls.market_history = pd.DataFrame(
-                columns=list(market.index),
-                data=[market.values],
-                index=[market.name]
+                columns=list(market.index), data=[market.values], index=[market.name]
             )
         elif market.name in cls.market_history.index:
             # If already recorded by other instance, return
@@ -73,7 +71,7 @@ class TraderBot(ABC):
             retained_weights = self.weights[index_diff]
 
         # Sell
-        self.k += market.multiply(self.__adj_weights, fill_value=0.).sum()
+        self.k += market.multiply(self.__adj_weights, fill_value=0.0).sum()
 
         # Update score
         self.score = self.k
@@ -81,30 +79,35 @@ class TraderBot(ABC):
         # Get new weights
         self.update_weights()
 
-        if self.weights.sum() > 1.:
+        if self.weights.sum() > 1.0:
             raise Exception("Weights too large")
-        if self.weights.sum() < 0.:
+        if self.weights.sum() < 0.0:
             raise Exception("Weights too small")
-        if self.weights.min() < 0.:
+        if self.weights.min() < 0.0:
             raise Exception("Negative weights are not allowed")
 
         # Compute adjusted weights from absolute weights.
         # This is to compensate for the different magnitudes
         # of the prices of different securities.
-        self.__adj_weights = self.k * self.weights.divide(market).fillna(0.).replace(np.inf, 0.)
+        self.__adj_weights = self.k * self.weights.divide(market).fillna(0.0).replace(np.inf, 0.0)
 
         if not index_diff.empty:
             k_retained_weights = retained_weights.sum()
-            self.__adj_weights = pd.concat([self.__adj_weights * (1. - k_retained_weights), retained_adj_weights])
-            self.weights = pd.concat([self.weights * (1. - k_retained_weights), retained_weights])
+            self.__adj_weights = pd.concat(
+                [self.__adj_weights * (1.0 - k_retained_weights), retained_adj_weights]
+            )
+            self.weights = pd.concat([self.weights * (1.0 - k_retained_weights), retained_weights])
 
         # Set k to the non-invested ratio.
-        self.k *= 1. - self.weights.sum()
+        self.k *= 1.0 - self.weights.sum()
 
     def data_selection_function(self) -> Tuple[List[str], pd.Series, pd.DataFrame]:
         """Function for selecting data"""
-        return select_from_history(n=self.n_trading_tickers, history=self.market_history,
-                                   horizon=self.historical_trading_horizon)
+        return select_from_history(
+            n=self.n_trading_tickers,
+            history=self.market_history,
+            horizon=self.historical_trading_horizon,
+        )
 
     def weight_function(self, tickers, mu, cov) -> pd.Series:
         """Function for weighting tickers"""
@@ -119,22 +122,21 @@ class TraderBot(ABC):
 
             self.weights = self.weight_function(tickers, mu, cov)
 
-            self.weights[self.weights < 1e-8] = 0.
+            self.weights[self.weights < 1e-8] = 0.0
 
-            if (total_weight := self.weights.sum()) > 1.:
-                self.weights *= .99 / total_weight
-            elif total_weight < 0.:
-                self.weights *= 0.
+            if (total_weight := self.weights.sum()) > 1.0:
+                self.weights *= 0.99 / total_weight
+            elif total_weight < 0.0:
+                self.weights *= 0.0
 
 
 class MinRiskBot(TraderBot):
     """A bot that seeks to construct a portfolio on the efficient frontier,
     with the lowest possible statistical risk."""
 
-    def __init__(self, *,
-                 n_trading_tickers = 30,
-                 historical_trading_horizon = 100,
-                 min_data_samples = 30) -> None:
+    def __init__(
+        self, *, n_trading_tickers=30, historical_trading_horizon=100, min_data_samples=30
+    ) -> None:
         super().__init__()
 
         self.min_data_samples = min_data_samples
@@ -152,10 +154,9 @@ class MaxSharpeBot(TraderBot):
     """A bot that seeks to construct a portfolio on the efficient frontier,
     with the highest possible sharpe ratio."""
 
-    def __init__(self, *,
-                 n_trading_tickers = 30,
-                 historical_trading_horizon = 100,
-                 min_data_samples = 30) -> None:
+    def __init__(
+        self, *, n_trading_tickers=30, historical_trading_horizon=100, min_data_samples=30
+    ) -> None:
         super().__init__()
 
         self.min_data_samples = min_data_samples
@@ -172,7 +173,7 @@ class MaxSharpeBot(TraderBot):
 class RandomBot(TraderBot):
     """A bot that generates uniform random weights"""
 
-    def __init__(self, n_trading_tickers = 30) -> None:
+    def __init__(self, n_trading_tickers=30) -> None:
         super().__init__()
 
         self.n_trading_tickers = n_trading_tickers
@@ -191,7 +192,7 @@ class RandomBot(TraderBot):
 class UniformBot(TraderBot):
     """A bot that generates uniform weights."""
 
-    def __init__(self, n_trading_tickers = 30) -> None:
+    def __init__(self, n_trading_tickers=30) -> None:
         super().__init__()
 
         self.n_trading_tickers = n_trading_tickers
@@ -220,8 +221,9 @@ class MasterBot(TraderBot):
         def bot_iterator():
             for bot in self._bots:
                 yield bot
-                if hasattr(bot, 'bots'):
+                if hasattr(bot, "bots"):
                     yield from bot.bots
+
         return list(bot_iterator())
 
     def __init__(self, bots: List[TraderBot]) -> None:
@@ -248,11 +250,12 @@ class MasterBot(TraderBot):
             mu = log_history.mean()
             cov = log_history.cov()
             bot_weights = max_sharpe(mu, cov)
-            
+
             # Return weighted sum of slave weights that slave bots use
             return reduce(
-                lambda a, b: a.add(b, fill_value=0.),
-                (bot.weights * weight for bot, weight in zip(self.bots, bot_weights)))
+                lambda a, b: a.add(b, fill_value=0.0),
+                (bot.weights * weight for bot, weight in zip(self.bots, bot_weights)),
+            )
 
         return pd.Series()
 

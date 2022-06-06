@@ -32,13 +32,14 @@ class Simulator:
     sim_start_time: datetime.datetime
     sim_end_time: datetime.datetime
 
-    def __init__(self,
-                 observers: List[Observer],
-                 market_history: pd.DataFrame,
-                 *,
-                 t0: datetime.datetime = None,
-                 verbose: bool = False
-                 ) -> None:
+    def __init__(
+        self,
+        observers: List[Observer],
+        market_history: pd.DataFrame,
+        *,
+        t0: datetime.datetime = None,
+        verbose: bool = False,
+    ) -> None:
         self._observers = observers
         self._market_history = market_history
         self.__timeline = iter(market_history.index)
@@ -56,7 +57,7 @@ class Simulator:
 
         # Get new market state
         market = self._market_history.loc[self._t, :].dropna()
-        market = market[market > 0.]
+        market = market[market > 0.0]
 
         if self._sparse:
             market = market.sparse.to_dense()
@@ -80,20 +81,20 @@ class Simulator:
     def print_state(self):
         best_3 = sorted(self._observers, key=lambda obs: -obs.score)[:4]
         strings = (f"{p.name}: {p.score:.3E}" for p in best_3)
-        print(' | '.join(strings))
+        print(" | ".join(strings))
 
     def save_scores(self):
         score_df = pd.DataFrame(
             index=[ix for _, ix in zip(self.scores, self._market_history.index)],
             columns=[obs.name for obs in self._observers],
-            data=self.scores
+            data=self.scores,
         )
         time_format = "%y-%m-%dT%H:%M:%S"
         start_time_str = self.sim_start_time.strftime(time_format)
         end_time_str = self.sim_end_time.strftime(time_format)
-        filename = (Path('.') / f'market_sim_scores_{start_time_str}_{end_time_str}.csv').absolute()
-        score_df.to_csv(filename, sep=';')
-        print(f'saved scores to {filename}')
+        filename = (Path(".") / f"market_sim_scores_{start_time_str}_{end_time_str}.csv").absolute()
+        score_df.to_csv(filename, sep=";")
+        print(f"saved scores to {filename}")
 
     def run(self):
         self.sim_start_time = datetime.datetime.now()

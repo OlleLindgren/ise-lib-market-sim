@@ -7,23 +7,26 @@ import pandas as pd
 
 from datacache import fingerprint
 
+
 def select_from_df(df: pd.DataFrame, n) -> pd.DataFrame:
-        
+
     na_rates = df.isna().sum() / df.shape[0]
 
     name_normal = lambda name: not any(set(range(10)) & set(name[-1]))
 
-    n_tickers_many = min(10*n, len(df.columns))
+    n_tickers_many = min(10 * n, len(df.columns))
 
     # Find a selection of tickers with non-digit names, and with low rates of NA
     best_many = heapq.nsmallest(
         n_tickers_many,
         na_rates.index,
-        key=lambda ticker: na_rates[ticker] if name_normal(ticker) else 2. + na_rates[ticker])
+        key=lambda ticker: na_rates[ticker] if name_normal(ticker) else 2.0 + na_rates[ticker],
+    )
     best_few = random.choices(best_many, k=n)
 
     _selection = df[best_few]
     return _selection
+
 
 def logify(df: pd.DataFrame) -> pd.DataFrame:
     """Apply ffill(5), dropna, diff and again dropna on df"""
@@ -31,17 +34,17 @@ def logify(df: pd.DataFrame) -> pd.DataFrame:
     _logification = _logification.apply(np.log).diff().dropna()
     return _logification
 
+
 def prep_select(df: pd.DataFrame, n: int) -> pd.DataFrame:
     return logify(select_from_df(df, n))
+
 
 # Dictionary to keep cached results from select_from_history in
 SELECTION_CACHES = {}
 
+
 def select_from_history(
-        n: int,
-        history: pd.DataFrame,
-        *,
-        horizon: int=500, nmax_internal: int=1000
+    n: int, history: pd.DataFrame, *, horizon: int = 500, nmax_internal: int = 1000
 ) -> Tuple[List[str], pd.Series, pd.DataFrame]:
     """Select promising portfolio components from historical stock prices
 
@@ -78,7 +81,7 @@ def select_from_history(
     selection = selection.loc[:, selection.iloc[-1, :] > 1e-8]
 
     # Filter out those with way too much NA
-    selection = selection.loc[:, selection.isna().sum() / selection.shape[0] < .3]
+    selection = selection.loc[:, selection.isna().sum() / selection.shape[0] < 0.3]
 
     # Covert to log returns
     selection = logify(selection)
@@ -93,7 +96,9 @@ def select_from_history(
     if selection.shape[1] > nmax_internal:
         selection_var = selection.var()
         score = selection_mu - 1.96 * selection_var.apply(np.sqrt)
-        selection_cols = heapq.nlargest(nmax_internal, selection.columns, key=lambda col: score[col])
+        selection_cols = heapq.nlargest(
+            nmax_internal, selection.columns, key=lambda col: score[col]
+        )
         selection = selection[selection_cols]
 
     # Calculate covariance
@@ -102,7 +107,7 @@ def select_from_history(
     # Keep the most negatively correlated. Narrow filter iteratively.
     columns = list(selection.columns)
 
-    for n_select in (n*5, n*2, n):
+    for n_select in (n * 5, n * 2, n):
         min_cov = cov.min()
         columns = heapq.nsmallest(n_select, columns, key=lambda col: min_cov[col])
         cov = cov.loc[columns, columns]
