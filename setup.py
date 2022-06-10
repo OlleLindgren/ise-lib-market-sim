@@ -1,5 +1,6 @@
 """ise-lib-market-sim setup.py"""
 from pathlib import Path
+
 import setuptools
 
 SRC_ROOT = Path(__file__).parent
@@ -14,8 +15,8 @@ with open(SRC_ROOT / "requirements.txt", "r", encoding=ENCODING) as f:
 
 # If any git requirements, install them separately
 if git_requirements:
-    import sys
     import subprocess
+    import sys
 
     for requirement in git_requirements:
         subprocess.run([sys.executable, "-m", "pip", "install", requirement], check=True)

@@ -103,7 +103,6 @@ class Simulator:
                 self.step()
                 if self.verbose:
                     self.print_state()
-            except:
+            finally:
                 self.sim_end_time = datetime.datetime.now()
                 self.save_scores()
-                raise

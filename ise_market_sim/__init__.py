@@ -1,2 +1,3 @@
 from .simulator import Simulator
-from .trading_bots import TraderBot, MinRiskBot, MaxSharpeBot, UniformBot, RandomBot, MasterBot
+from .trading_bots import (MasterBot, MaxSharpeBot, MinRiskBot, RandomBot,
+                           TraderBot, UniformBot)

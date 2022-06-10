@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import List, Tuple
-import pandas as pd
-import numpy as np
 
-from ise_efficient_frontier import min_risk, max_sharpe
+import numpy as np
+import pandas as pd
+from ise_efficient_frontier import max_sharpe, min_risk
+
 from .market_selection import logify, select_from_history
 
 
